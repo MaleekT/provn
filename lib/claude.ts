@@ -1,73 +1,74 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type { ScoreResult } from './types'
 import { getScoreTier } from './scorer'
-
-function getClient(): Anthropic {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set')
-  return new Anthropic({ apiKey })
-}
 
 export interface ScoreExplanation {
   explanation: string
   suggestions: string[]
 }
 
+const DIMENSION_MAX = { walletAge: 15, txVolume: 15, diversity: 15, jobCompletion: 20, loanRepayment: 15, identity: 10, successRate: 10 }
+
+function pct(val: number, max: number) { return max === 0 ? 0 : val / max }
+
 export async function generateScoreExplanation(
   wallet: string,
   score: ScoreResult
 ): Promise<ScoreExplanation> {
-  const client = getClient()
   const tier = getScoreTier(score.total)
+  const b = score.breakdown
 
-  const message = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 1024,
-    messages: [
-      {
-        role: 'user',
-        content: `You are analysing an on-chain reputation score for wallet ${wallet} on Arc testnet.
+  // Build explanation from the two weakest and two strongest dimensions
+  const dims = [
+    { label: 'wallet age', val: b.walletAge, max: DIMENSION_MAX.walletAge },
+    { label: 'transaction volume', val: b.txVolume, max: DIMENSION_MAX.txVolume },
+    { label: 'protocol diversity', val: b.diversity, max: DIMENSION_MAX.diversity },
+    { label: 'job completion rate', val: b.jobCompletion, max: DIMENSION_MAX.jobCompletion },
+    { label: 'loan repayment', val: b.loanRepayment, max: DIMENSION_MAX.loanRepayment },
+    { label: 'ERC-8004 identity', val: b.identity, max: DIMENSION_MAX.identity },
+    { label: 'transaction success rate', val: b.successRate, max: DIMENSION_MAX.successRate },
+  ].map((d) => ({ ...d, ratio: pct(d.val, d.max) }))
+    .sort((a, b) => a.ratio - b.ratio)
 
-Score: ${score.total}/100 — Tier: ${tier}
-Breakdown:
-- Wallet Age: ${score.breakdown.walletAge}/15
-- Transaction Volume: ${score.breakdown.txVolume}/15
-- Protocol Diversity: ${score.breakdown.diversity}/15
-- Job Completion Rate: ${score.breakdown.jobCompletion}/20
-- Loan Repayment: ${score.breakdown.loanRepayment}/15
-- ERC-8004 Registration: ${score.breakdown.identity}/10
-- Transaction Success Rate: ${score.breakdown.successRate}/10
+  const weakest = dims.slice(0, 2).map((d) => d.label)
+  const strongest = dims.slice(-2).map((d) => d.label)
 
-Return ONLY valid JSON with this exact structure:
-{
-  "explanation": "2-3 sentence plain English summary of the score",
-  "suggestions": ["specific action 1", "specific action 2", "specific action 3"]
-}`,
-      },
-    ],
-  })
+  const short = `${wallet.slice(0, 6)}…${wallet.slice(-4)}`
 
-  const raw = message.content[0]
-  if (raw.type !== 'text') throw new Error('Unexpected Claude response type')
+  const explanation =
+    `Wallet ${short} earned a ${score.total}/100 ${tier} score on Arc testnet. ` +
+    `Strongest dimensions are ${strongest[1]} and ${strongest[0]}, demonstrating consistent on-chain activity. ` +
+    `${score.total < 50
+      ? `This wallet is still building its reputation — focused activity will push the score higher.`
+      : `This wallet shows solid on-chain credibility across most dimensions.`}`
 
-  const jsonMatch = raw.text.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('Claude response did not contain valid JSON')
+  const suggestions = buildSuggestions(b)
 
-  const parsed = JSON.parse(jsonMatch[0]) as unknown
+  return { explanation, suggestions }
+}
 
-  if (
-    typeof parsed !== 'object' ||
-    parsed === null ||
-    typeof (parsed as Record<string, unknown>).explanation !== 'string' ||
-    !Array.isArray((parsed as Record<string, unknown>).suggestions)
-  ) {
-    throw new Error('Claude response had unexpected shape')
-  }
+function buildSuggestions(b: ScoreResult['breakdown']): string[] {
+  const tips: string[] = []
 
-  const result = parsed as { explanation: string; suggestions: unknown[] }
+  if (pct(b.walletAge, DIMENSION_MAX.walletAge) < 0.5)
+    tips.push('Keep your wallet active — age scores improve automatically as your wallet history grows on Arc testnet.')
 
-  return {
-    explanation: result.explanation,
-    suggestions: result.suggestions.slice(0, 3).map((s) => String(s)),
-  }
+  if (pct(b.txVolume, DIMENSION_MAX.txVolume) < 0.5)
+    tips.push('Increase your transaction volume by interacting with Arc testnet dApps and contracts regularly.')
+
+  if (pct(b.diversity, DIMENSION_MAX.diversity) < 0.5)
+    tips.push('Interact with more unique smart contracts to improve your protocol diversity score.')
+
+  if (pct(b.jobCompletion, DIMENSION_MAX.jobCompletion) < 0.7)
+    tips.push('Complete more ERC-8183 agentic jobs — a higher completion rate is the biggest scoring lever.')
+
+  if (b.identity === 0)
+    tips.push('Register your wallet on the ERC-8004 IdentityRegistry to unlock the full 10-point identity bonus.')
+
+  if (pct(b.successRate, DIMENSION_MAX.successRate) < 0.8)
+    tips.push('Reduce failed transactions — a high success rate signals a reliable, well-managed wallet.')
+
+  if (tips.length === 0)
+    tips.push('Maintain your activity level to protect your Elite score as competition grows on the leaderboard.')
+
+  return tips.slice(0, 3)
 }

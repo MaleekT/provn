@@ -35,7 +35,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // 4. Write reputation event to ERC-8004 registry (agent signs via viem)
     const reputationTxHash = await writeReputationEvent(wallet, score.total, score.breakdown)
 
-    // 5. Generate plain-English explanation from Claude
+    // 5. Generate score explanation (local, no external API)
     const { explanation, suggestions } = await generateScoreExplanation(wallet, score)
 
     // 6. Create ERC-8183 scoring job, submit deliverable, complete job
