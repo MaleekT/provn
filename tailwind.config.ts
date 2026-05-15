@@ -11,6 +11,10 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        navy: "#0A0F1E",
+        "score-green": "#22C55E",
+        "score-amber": "#F59E0B",
+        "score-red": "#EF4444",
       },
     },
   },
