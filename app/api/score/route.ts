@@ -39,11 +39,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const { explanation, suggestions } = await generateScoreExplanation(wallet, score)
 
     // 6. Create ERC-8183 scoring job, submit deliverable, complete job
-    const { jobId, txHash: createTxHash } = await createScoringJob(wallet)
-    await submitDeliverable(jobId, score, wallet)
-    const jobTxHash = await completeJob(jobId)
-
-    void createTxHash // logged on-chain; jobTxHash is the final completion tx shown in UI
+    // Non-fatal: agent wallet needs testnet USDC + approval to fund the job escrow
+    let jobTxHash = ''
+    try {
+      const { jobId, txHash: createTxHash } = await createScoringJob(wallet)
+      void createTxHash
+      await submitDeliverable(jobId, score, wallet)
+      jobTxHash = await completeJob(jobId)
+    } catch (jobErr: unknown) {
+      console.error('[/api/score] ERC-8183 job flow failed (non-fatal):', jobErr)
+    }
 
     const response: ProvnScoreResponse = {
       wallet,

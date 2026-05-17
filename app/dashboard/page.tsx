@@ -117,24 +117,28 @@ export default function DashboardPage() {
 
                 {/* Tx links */}
                 <div className="w-full space-y-2 pt-2 border-t border-slate-800/60">
-                  <a
-                    href={explorerTxUrl(scoreData.reputationTxHash)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between text-xs text-slate-500 hover:text-score-green transition-colors"
-                  >
-                    <span>ERC-8004 write</span>
-                    <span className="font-mono">{scoreData.reputationTxHash.slice(0, 10)}…↗</span>
-                  </a>
-                  <a
-                    href={explorerTxUrl(scoreData.jobTxHash)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between text-xs text-slate-500 hover:text-score-green transition-colors"
-                  >
-                    <span>ERC-8183 job</span>
-                    <span className="font-mono">{scoreData.jobTxHash.slice(0, 10)}…↗</span>
-                  </a>
+                  {scoreData.reputationTxHash && (
+                    <a
+                      href={explorerTxUrl(scoreData.reputationTxHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between text-xs text-slate-500 hover:text-score-green transition-colors"
+                    >
+                      <span>ERC-8004 write</span>
+                      <span className="font-mono">{scoreData.reputationTxHash.slice(0, 10)}…↗</span>
+                    </a>
+                  )}
+                  {scoreData.jobTxHash && (
+                    <a
+                      href={explorerTxUrl(scoreData.jobTxHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between text-xs text-slate-500 hover:text-score-green transition-colors"
+                    >
+                      <span>ERC-8183 job</span>
+                      <span className="font-mono">{scoreData.jobTxHash.slice(0, 10)}…↗</span>
+                    </a>
+                  )}
                 </div>
               </div>
 
