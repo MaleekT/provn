@@ -29,7 +29,6 @@ export async function generateScoreExplanation(
   ].map((d) => ({ ...d, ratio: pct(d.val, d.max) }))
     .sort((a, b) => a.ratio - b.ratio)
 
-  const weakest = dims.slice(0, 2).map((d) => d.label)
   const strongest = dims.slice(-2).map((d) => d.label)
 
   const short = `${wallet.slice(0, 6)}…${wallet.slice(-4)}`
